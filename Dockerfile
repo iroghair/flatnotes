@@ -1,7 +1,7 @@
 ARG BUILD_DIR=/build
 
 # Build Container
-FROM --platform=$BUILDPLATFORM node:20-alpine AS build
+FROM node:20-alpine AS build
 
 ARG BUILD_DIR
 
@@ -52,7 +52,8 @@ RUN pipenv install --deploy --ignore-pipfile --system && \
     pipenv --clear
 
 COPY server ./server
-COPY --from=build --chmod=777 ${BUILD_DIR}/client/dist ./client/dist
+COPY --from=build ${BUILD_DIR}/client/dist ./client/dist
+RUN chmod -R 777 ./client/dist
 
 COPY entrypoint.sh healthcheck.sh /
 RUN chmod +x /entrypoint.sh /healthcheck.sh

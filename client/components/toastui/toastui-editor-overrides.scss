@@ -282,3 +282,8 @@
 .toastui-editor-contents th p {
   color: rgb(var(--theme-text));
 }
+
+// Task list items - staged status
+.toastui-editor-contents .task-list-item.staged::before {
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgdmlld0JveD0iMCAwIDE4IDE4Ij48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM0Qjk2RTYiPjxyZWN0IHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgcng9IjIiLz48cmVjdCB3aWR0aD0iMTAiIGhlaWdodD0iMi41IiB4PSI0IiB5PSI3Ljc1IiByeD0iMS4yNSIgZmlsbD0iI0ZGRiIvPjwvZz48L2c+PC9zdmc+");
+}

@@ -31,6 +31,32 @@ const customHTMLRenderer = {
     }
     return original;
   },
+  // Support triple statuses for task list items (none [ ], staged [-] / [/], completed [x])
+  item(node, { entering, origin }) {
+    if (entering && !node.listData.task && node.firstChild) {
+      let textNode = node.firstChild;
+      while (textNode && textNode.type !== "text") {
+        textNode = textNode.firstChild;
+      }
+      if (textNode && textNode.literal) {
+        const match = textNode.literal.match(/^\[([-\/])\]\s*/);
+        if (match) {
+          textNode.literal = textNode.literal.slice(match[0].length);
+          node.listData.task = true;
+          node.listData.checked = "staged";
+          const res = origin();
+          res.attributes = res.attributes || {};
+          res.attributes.class = (
+            (res.attributes.class || "") + " task-list-item staged"
+          ).trim();
+          res.attributes["data-task"] = "";
+          res.attributes["data-task-staged"] = "";
+          return res;
+        }
+      }
+    }
+    return origin();
+  },
 };
 
 const baseOptions = {
