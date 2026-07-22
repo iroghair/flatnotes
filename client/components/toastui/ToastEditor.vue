@@ -80,81 +80,136 @@ function setupStagedTasks() {
     };
   }
 
-  // 3. Add mousedown event listener for interactive 3-way status cycling
+  // 3. Add event listeners for interactive 3-way status cycling (works on touch & mouse)
   if (editorElement.value) {
-    editorElement.value.addEventListener(
-      "mousedown",
-      (ev) => {
-        const target = ev.target;
-        const listItemEl = target.closest
-          ? target.closest(".task-list-item")
-          : null;
-        if (!listItemEl) return;
+    let lastHandledTime = 0;
 
-        const style = window.getComputedStyle(listItemEl, ":before");
-        const left = parseInt(style.left, 10) || 0;
-        const top = parseInt(style.top, 10) || 0;
-        const width =
-          (parseInt(style.width, 10) || 18) +
-          (parseInt(style.paddingLeft, 10) || 0) +
-          (parseInt(style.paddingRight, 10) || 0);
-        const height =
-          (parseInt(style.height, 10) || 18) +
-          (parseInt(style.paddingTop, 10) || 0) +
-          (parseInt(style.paddingBottom, 10) || 0);
-        const offsetX = ev.offsetX;
-        const offsetY = ev.offsetY;
+    const cycleTaskMarkerInString = (lineText) => {
+      if (/^\s*[-*+]\s+\[ \]/i.test(lineText)) {
+        return lineText.replace(/^(\s*[-*+]\s+)\[ \]/i, "$1[-]");
+      }
+      if (/^\s*[-*+]\s+\[[-\/\]]/i.test(lineText)) {
+        return lineText.replace(/^(\s*[-*+]\s+)\[[-\/\]]/i, "$1[x]");
+      }
+      if (/^\s*[-*+]\s+\[x\]/i.test(lineText)) {
+        return lineText.replace(/^(\s*[-*+]\s+)\[x\]/i, "$1[ ]");
+      }
+      return lineText;
+    };
 
-        const isInBox =
-          offsetX >= left &&
-          offsetX <= left + width &&
-          offsetY >= top &&
-          offsetY <= top + height;
+    const handleCheckboxPointerEvent = (ev) => {
+      const target = ev.target;
+      const listItemEl = target.closest
+        ? target.closest(".task-list-item")
+        : null;
+      if (!listItemEl) return;
 
-        if (!isInBox) return;
+      const style = window.getComputedStyle(listItemEl, ":before");
+      const left = parseInt(style.left, 10) || 0;
+      const top = parseInt(style.top, 10) || 0;
+      const width =
+        (parseInt(style.width, 10) || 18) +
+        (parseInt(style.paddingLeft, 10) || 0) +
+        (parseInt(style.paddingRight, 10) || 0);
+      const height =
+        (parseInt(style.height, 10) || 18) +
+        (parseInt(style.paddingTop, 10) || 0) +
+        (parseInt(style.paddingBottom, 10) || 0);
 
-        if (toastEditor.isWysiwygMode()) {
-          const view = toastEditor.wwEditor.view;
-          const mousePos = view.posAtCoords({
-            left: ev.clientX,
-            top: ev.clientY,
-          });
-          if (!mousePos) return;
+      const rect = listItemEl.getBoundingClientRect();
+      let clientX, clientY;
+      if (ev.touches && ev.touches.length > 0) {
+        clientX = ev.touches[0].clientX;
+        clientY = ev.touches[0].clientY;
+      } else if (ev.changedTouches && ev.changedTouches.length > 0) {
+        clientX = ev.changedTouches[0].clientX;
+        clientY = ev.changedTouches[0].clientY;
+      } else {
+        clientX = ev.clientX;
+        clientY = ev.clientY;
+      }
 
-          const doc = view.state.doc;
-          const currentPos = doc.resolve(mousePos.pos);
-          let depth = currentPos.depth;
-          while (depth > 0 && currentPos.node(depth).type.name !== "listItem") {
-            depth--;
-          }
-          if (depth <= 0) return;
+      const offsetX = clientX - rect.left;
+      const offsetY = clientY - rect.top;
 
-          const listItemNode = currentPos.node(depth);
-          const offset = currentPos.before(depth);
-          const currentChecked = listItemNode.attrs.checked;
-          let nextChecked;
-          if (currentChecked === "staged") {
-            nextChecked = true; // staged [-] -> completed [x]
-          } else if (currentChecked === true) {
-            nextChecked = false; // completed [x] -> none [ ]
-          } else {
-            nextChecked = "staged"; // none [ ] -> staged [-]
-          }
+      const isInBox =
+        offsetX >= left - 6 &&
+        offsetX <= left + width + 10 &&
+        offsetY >= top - 6 &&
+        offsetY <= top + height + 10;
 
-          ev.preventDefault();
-          ev.stopPropagation();
+      if (!isInBox) return;
 
-          const tr = view.state.tr;
-          tr.setNodeMarkup(offset, null, {
-            ...listItemNode.attrs,
-            task: true,
-            checked: nextChecked,
-          });
-          view.dispatch(tr);
+      const now = Date.now();
+      if (now - lastHandledTime < 300) {
+        if (ev.cancelable) ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+      lastHandledTime = now;
+
+      if (ev.cancelable) ev.preventDefault();
+      ev.stopPropagation();
+
+      if (toastEditor.isWysiwygMode()) {
+        const view = toastEditor.wwEditor.view;
+        const mousePos = view.posAtCoords({
+          left: clientX,
+          top: clientY,
+        });
+        if (!mousePos) return;
+
+        const doc = view.state.doc;
+        const currentPos = doc.resolve(mousePos.pos);
+        let depth = currentPos.depth;
+        while (depth > 0 && currentPos.node(depth).type.name !== "listItem") {
+          depth--;
         }
-      },
-      true
-    );
+        if (depth <= 0) return;
+
+        const listItemNode = currentPos.node(depth);
+        const offset = currentPos.before(depth);
+        const currentChecked = listItemNode.attrs.checked;
+        let nextChecked;
+        if (currentChecked === "staged") {
+          nextChecked = true; // staged [-] -> completed [x]
+        } else if (currentChecked === true) {
+          nextChecked = false; // completed [x] -> none [ ]
+        } else {
+          nextChecked = "staged"; // none [ ] -> staged [-]
+        }
+
+        const tr = view.state.tr;
+        tr.setNodeMarkup(offset, null, {
+          ...listItemNode.attrs,
+          task: true,
+          checked: nextChecked,
+        });
+        view.dispatch(tr);
+        emit("change");
+      } else {
+        // Markdown Mode Preview Pane
+        const nodeId = listItemEl.getAttribute("data-nodeid");
+        if (nodeId && toastEditor.toastMark) {
+          const mdNode = toastEditor.toastMark.findNodeById(Number(nodeId));
+          if (mdNode && mdNode.sourcepos) {
+            const lineNum = mdNode.sourcepos[0][0];
+            const content = toastEditor.getMarkdown();
+            const lines = content.split("\n");
+            if (lineNum >= 1 && lineNum <= lines.length) {
+              lines[lineNum - 1] = cycleTaskMarkerInString(lines[lineNum - 1]);
+              toastEditor.setMarkdown(lines.join("\n"));
+              emit("change");
+            }
+          }
+        }
+      }
+    };
+
+    editorElement.value.addEventListener("pointerdown", handleCheckboxPointerEvent, { capture: true });
+    editorElement.value.addEventListener("touchstart", handleCheckboxPointerEvent, { capture: true, passive: false });
+    editorElement.value.addEventListener("mousedown", handleCheckboxPointerEvent, { capture: true });
+    editorElement.value.addEventListener("click", handleCheckboxPointerEvent, { capture: true });
   }
 }
 

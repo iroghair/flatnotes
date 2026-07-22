@@ -94,6 +94,7 @@
         v-if="!editMode"
         :initialValue="note.content"
         class="toast-viewer pb-4"
+        @change="viewerContentChangedHandler"
       />
       <ToastEditor
         v-if="editMode"
@@ -109,9 +110,9 @@
 </template>
 
 <style>
-/* Disable checkboxes in view mode. See https://github.com/nhn/tui.editor/issues/1087. */
+/* Enable checkboxes in view mode for interactive task status updates. */
 .toast-viewer li.task-list-item {
-  pointer-events: none;
+  pointer-events: auto;
 }
 .toast-viewer li.task-list-item a {
   pointer-events: auto;
@@ -311,6 +312,12 @@ function saveExisting(newTitle, newContent, close = false) {
       noteSaveSuccess(close);
     })
     .catch(noteSaveFailure);
+}
+
+function viewerContentChangedHandler(newContent) {
+  if (canModify.value && note.value && note.value.title) {
+    saveExisting(note.value.title, newContent);
+  }
 }
 
 function noteSaveFailure(error) {
